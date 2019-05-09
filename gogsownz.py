@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 import requests
 import re
 from urllib.parse import unquote
 import json
 import argparse
 import time
+import random
+import string
 
 """
 Within Gogs there are 2 rules:
@@ -87,10 +90,7 @@ class Gogs:
 
         if self.cookie_name is None:
             cookies = [k for k in self.session.cookies.iterkeys()]
-            cookies = list(filter(lambda x: x not in EXTRA_COOKIES, cookies))
-            if len(cookies) != 1:
-                raise GogsException("Can't find Gogs-specific session cookie")
-            self.cookie_name = cookies[0]
+            self.cookie_name = cookies[cookies.index("i_like_gogits")]
 
     def log(self, severity, text):
         if self.verbosity >= severity:
@@ -123,8 +123,12 @@ class Gogs:
     def csrf_dance(self, page):
         regex = re.compile(r'<meta name="_csrf" content="(\S+)" />')
         match = regex.search(page)
-        self.csrftoken = match.group(1) if match is not None else self.csrftoken
-        self.log(2, "Got CSRF Token {}".format(self.csrftoken))
+        try:
+            self.csrftoken = match.group(1) if match is not None else self.csrftoken
+            self.log(2, "Got CSRF Token {}".format(self.csrftoken))
+        except:
+            self.log(0, "Potentially Not a Gogs Site, exiting...")
+            exit()
 
     def check_tor(self):
         req = self.session.get('https://check.torproject.org/api/ip')
@@ -173,7 +177,9 @@ class Gogs:
     def is_loggedin(self):
         return self.username is not None
 
-    def create_repo(self, repo_name='gogstest'):  # edit for m0r3 lulz
+    def create_repo(self, repo_name="gogstest"):  # edit for m0r3 lulz
+        #if repo_name == "gogstest":
+        #    repo_name == ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         resp = self.get('/repo/create')
         regex = re.compile('<input type="hidden" id="user_id" name="user_id" value="(\d+)" required>')
         match = regex.search(resp)
